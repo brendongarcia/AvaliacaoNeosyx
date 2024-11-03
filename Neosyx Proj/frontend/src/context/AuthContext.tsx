@@ -15,6 +15,7 @@ interface AuthContextType {
     user: User | null;
     error: Error | null;
     login: (username: string, password: string) => Promise<void>;
+    register: (name: string, username: string, password: string, passwordConfirmation: string,) => Promise<void>;
     logout: () => void;
 }
 
@@ -73,6 +74,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const register = async (name: string, username: string, password: string, passwordConfirmation: string) => {
+        const headers = new Headers();
+        headers.append('Accept', 'application/json');
+        headers.append('Content-Type', 'application/json');
+
+        try {
+            const response = await fetch('http://localhost:8888/api/auth/register', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ name: name, email: username, password: password, passwordConfirmation: password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(new Error(data.message || 'Registration failed'));
+                return;
+            }
+
+            // Optionally log the user in after registration
+            setCookie('token', data.token, { path: '/' });
+            router.push('/chat');
+        } catch (e) {
+            setError(e as Error);
+        }
+    };
+
     const logout = async () => {
         setUser(null);
         removeCookie('token', { path: '/' });
@@ -80,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, error, login, logout }}>
+        <AuthContext.Provider value={{ user, error, login, register, logout }}>
             {children}
         </AuthContext.Provider>
     );
