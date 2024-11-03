@@ -1,90 +1,97 @@
-'use client'
+'use client';
 
-import { useRouter } from "next/navigation"
-import { ReactNode, createContext, useContext, useState, useEffect } from "react"
-import { jwtDecode } from "jwt-decode"
-import { useCookies } from "react-cookie"
-import socket from '@/lib/socket'
-interface AuthContextType {
-    user: User|null
-    error: Error|null
-    login: (username: string, password: string) => Promise<void>
-    logout: () => void
+import { useRouter } from "next/navigation";
+import { ReactNode, createContext, useContext, useState, useEffect } from "react";
+import { jwtDecode } from "jwt-decode";
+import { useCookies } from "react-cookie";
+import socket from '@/lib/socket';
+
+interface User {
+    name: string;
+    email: string;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+interface AuthContextType {
+    user: User | null;
+    error: Error | null;
+    login: (username: string, password: string) => Promise<void>;
+    logout: () => void;
+}
 
-export const AuthProvider = ({ children }: {children: ReactNode}) => {
-    const [user, setUser] = useState<User | null>(null)
-    const [error, setError] = useState<Error | null>(null)
-    const [cookie, setCookie, removeCookie] = useCookies(['token'])
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-    const router = useRouter()
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [user, setUser] = useState<User | null>(null);
+    const [error, setError] = useState<Error | null>(null);
+    const [cookie, setCookie, removeCookie] = useCookies(['token']);
+
+    const router = useRouter();
 
     useEffect(() => {
-        const token = cookie.token
+        const token = cookie.token;
 
-        if(!token) {
-            return
-        }
-
-        let decodedToken = jwtDecode(token)
-
-        setUser(decodedToken as User)
-
-        socket.auth = {user: decodedToken}
-        socket.connect()
-        
-            
-        
-    }, [router])
-
-    const login = async (username: string, password: string) => {
-        const headers = new Headers()
-
-        headers.append('Accept', 'application/json')
-        headers.append('Content-Type', 'application/json')
-        const data = await fetch('http://localhost:8888/api/auth/login', {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify({email: username, password: password})
-        })
-        .then((res) => res.json())    
-        .catch((e: Error) => setError(e))
-        
-        if(!data) {
+        if (!token) {
+            setUser(null);
+            socket.disconnect();
             return;
         }
 
-        // let decodedToken = jwtDecode(data.token)
-        
-        // setUser(decodedToken.name)
+        try {
+            const decodedToken = jwtDecode(token);
+            setUser(decodedToken as User);
+            socket.auth = { user: decodedToken };
+            socket.connect();
+        } catch (error) {
+            console.error("Error decoding token:", error);
+            setError(error as Error);
+        }
+    }, [cookie.token]);
 
-        setCookie('token', data.token, {path: '/'})
+    const login = async (username: string, password: string) => {
+        const headers = new Headers();
+        headers.append('Accept', 'application/json');
+        headers.append('Content-Type', 'application/json');
 
-        router.push('/chat')
-    }
+        try {
+            const response = await fetch('http://localhost:8888/api/auth/login', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ email: username, password: password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.token) {
+                setError(new Error(data.message || 'Login failed'));
+                return;
+            }
+
+            setCookie('token', data.token, { path: '/' });
+            router.push('/chat');
+        } catch (e) {
+            setError(e as Error);
+        }
+    };
 
     const logout = async () => {
-        setUser(null)
-        removeCookie('token', {path: '/'})
-        router.push('/login')
-
-    }
+        setUser(null);
+        removeCookie('token', { path: '/' });
+        router.push('/login');
+    };
 
     return (
-        <AuthContext.Provider value={{user, error, login, logout}}>
+        <AuthContext.Provider value={{ user, error, login, logout }}>
             {children}
         </AuthContext.Provider>
-    )
-}
+    );
+};
 
 export const useAuth = () => {
-    const context = useContext(AuthContext)
+    const context = useContext(AuthContext);
 
-    if(!context) {
-        throw new Error('Contexto Inválido')
+    if (!context) {
+        throw new Error('Contexto Inválido');
     }
 
-    return context
-}
+    return context;
+};
