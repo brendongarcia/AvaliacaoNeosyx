@@ -13,11 +13,11 @@ const login = async (req: Request, res: Response) => {
 
   const result = await query(`SELECT * FROM users WHERE email = '${email}'`);  
 
-  if(result.recordset.length === 0) {
+  if(result.rows.length === 0) {
     return res.status(400).send({error: 'Email ou senha inválidos'})
   }  
 
-  const user = result.recordset[0] as User
+  const user = result.rows[0] as User
 
   const isPasswordValid = await bcrypt.compare(password, user.password)
  
@@ -42,7 +42,7 @@ const register = async (req: Request, res: Response) => {
 
   const result = await query(`SELECT * FROM users WHERE email = '${email}'`);  
     
-  if(result.recordset.length > 0) {
+  if(result.rows.length > 0) {
     return res.status(400).json({error: "O email informado já está sendo utilizado"})
   }
 
@@ -61,5 +61,29 @@ const register = async (req: Request, res: Response) => {
   return res.status(201).send({message: 'Usuário criado com sucesso'})
 };
 
+const users = async (req: Request, res: Response) => {
+  const result = await query(`SELECT * FROM users`);
 
-export { login, register };
+  return res.send(result.rows)
+};
+
+const message = async (req: Request, res: Response) => {
+  const { to, sender, content } = req.body;
+
+  await query(`INSERT INTO messages (from_user_id, to_user_id, message) VALUES ($1, $2, $3)`, [sender.id, to.id, content]);
+
+  return res.status(201).send({ message: 'Mensagem enviada com sucesso' });
+};
+
+const getMessages = async (req: Request, res: Response) => {
+  const result = await query(`
+    SELECT u."name" as username, m.* FROM messages m
+    inner join users u on
+      m.from_user_id = u.id
+  `);
+
+  return res.send(result.rows)
+};
+
+
+export { login, register, users, message, getMessages };

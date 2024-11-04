@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const token = cookie.token;
 
-        if (!token) {
+        if (!token || token == 'undefined') {
             setUser(null);
             socket.disconnect();
             return;

@@ -1,43 +1,35 @@
+import { Pool } from 'pg';
 import dotenv from 'dotenv';
-import sql from 'mssql';
 
 dotenv.config();
 
-const sqlConfig = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  server: process.env.DB_HOST,
-  pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000,
-  },
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-  },
+const pgConfig = {
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432', 10), // Convert to number
+    max: 10, // number of maximum connections in the pool
+    idleTimeoutMillis: 30000 // wait time before disconnecting a client
 };
 
-async function query(queryString: string) {
-  try {
-    const pool = await sql.connect(sqlConfig);
-    console.log("Conectado ao banco de dados com sucesso!");
-    
-    const result = await pool.query(queryString);
-    console.log("Resultado da consulta:", result.recordset); // Imprimindo o resultado da consulta
-    
-    return result;
-  } catch (err) {
-    console.error("Erro ao conectar ao banco de dados:", err);
-    throw err;
-  }
+const pool = new Pool(pgConfig);
+
+async function query(queryText: string, params: any[] = []) {
+    const client = await pool.connect();
+    try {
+        const res = await client.query(queryText, params);
+        
+        // console.log("Resultado da consulta:", res.rows);
+        return res;
+    } finally {
+        client.release();
+    }
 }
 
 export { query };
-module.exports = { query };
 
-// // Testando a consulta
+
 // query("SELECT * FROM users").then(() => {
 //   console.log("Teste de query executado.");
 // }).catch(err => {
