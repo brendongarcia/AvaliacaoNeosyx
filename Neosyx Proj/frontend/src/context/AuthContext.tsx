@@ -78,29 +78,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const headers = new Headers();
         headers.append('Accept', 'application/json');
         headers.append('Content-Type', 'application/json');
-
+        
         try {
             const response = await fetch('http://localhost:8888/api/auth/register', {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({ name: name, email: username, password: password, passwordConfirmation: password })
+                body: JSON.stringify({ name: name, email: username, password: password, password_confirmation: passwordConfirmation })
             });
-
+            
             const data = await response.json();
-
+    
             if (!response.ok) {
+                console.error('Registration failed:', response.status, data);
                 setError(new Error(data.message || 'Registration failed'));
                 return;
             }
-
-            // Optionally log the user in after registration
+    
             setCookie('token', data.token, { path: '/' });
             router.push('/chat');
         } catch (e) {
+            console.error('Erro durante o registro:', e);
             setError(e as Error);
         }
     };
-
+    
     const logout = async () => {
         setUser(null);
         removeCookie('token', { path: '/' });
